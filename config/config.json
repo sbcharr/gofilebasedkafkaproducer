@@ -1,0 +1,17 @@
+[
+    {
+        "table_name": "links",
+        "file_loc": "/home/ubuntu/goworkspace/src/github.com/squeakysimple/gofilebasedkafkaproducer/data/ml-latest-small/links.csv",
+        "kafka_topic": "movielens-links",
+        "compression": "snappy",
+        "enabled": true
+
+    },
+    {
+        "table_name": "movies",
+        "file_loc": "/home/ubuntu/goworkspace/src/github.com/squeakysimple/gofilebasedkafkaproducer/data/ml-latest-small/movies.csv",
+        "kafka_topic": "movielens-movies",
+        "compression": "snappy",
+        "enabled": true
+    }
+]

@@ -11,15 +11,25 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Shopify/sarama"
+	"github.com/squeakysimple/gofilebasedkafkaproducer/config"
 	producer "github.com/squeakysimple/gofilebasedkafkaproducer/fileproducer"
 )
 
 var (
-	messages  []string
-	table     = os.Args[1]
-	topic     string
-	byteArray []byte
+	messages     []string
+	byteArray    []byte
+	conf         []*config.AppConfig
+	err          error
+	producerMsgs []*sarama.ProducerMessage
 )
+
+func init() {
+	conf, err = config.LoadConfig()
+	if err != nil {
+		panic(err)
+	}
+}
 
 func main() {
 	now := time.Now()
@@ -29,35 +39,26 @@ func main() {
 	}
 
 	defer syncProducer.Close()
-	//fmt.Println(producer.Tables[table])
-	switch producer.Tables[table] {
-	case "Links":
-		topic = "movielens-links"
-		csvFile := "./data/ml-latest-small/links.csv"
-		ReadCSV(csvFile, &messages)
-	case "Movies":
-		topic = "movielens-movies"
-		csvFile := "./data/ml-latest-small/movies.csv"
-		ReadCSV(csvFile, &messages)
-	default:
-		panic(errors.New("No valid table name supplied"))
-	}
+	for i := 0; i < len(conf); i++ {
+		fmt.Println(conf[i].Enabled)
+		if conf[i].Enabled {
+			fmt.Println("executing", producer.Tables[conf[i].Table])
+			ReadCSV(conf[i].FileLoc, conf[i].Table, &messages)
+		}
 
-	producerMsgs := producer.PrepareMessages(topic, messages)
-
-	err = syncProducer.SendMessages(producerMsgs)
-	if err != nil {
-		fmt.Println(err)
+		producerMsgs = producer.PrepareMessages(conf[i].Topic, messages)
+		err = syncProducer.SendMessages(producerMsgs)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	dur := time.Since(now)
 	fmt.Println(dur.Seconds())
-	//fmt.Println(partition, offset)
-
 }
 
 // ReadCSV reads a csv file and adds data to messages slice
-func ReadCSV(csvFile string, m *[]string) {
+func ReadCSV(csvFile string, table string, m *[]string) {
 	file, err := os.Open(csvFile)
 	if err != nil {
 		panic(err)
