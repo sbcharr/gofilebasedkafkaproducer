@@ -31,16 +31,49 @@ func init() {
 	}
 }
 
+var waitStack, processStack, errorStack []string
+
 func main() {
 	now := time.Now()
 	syncProducer, err := producer.NewProducer()
 	if err != nil {
-		fmt.Println(err)
+		panic(err)
 	}
-
 	defer syncProducer.Close()
+
+	//addToWaitStack() // inserts all tables into waitStack
+	/*
+		go func() {
+			i := 0
+			for i < len(conf) {
+				if len(processStack) < 2 {
+					if conf[i].Enabled {
+						//tableToProcess := PopFromStack(waitStack)
+						addToProcessStack(conf[i].Table)
+					}
+					i++
+				}
+			}
+		}()
+
+		go func() {
+			processingTable := PopFromStack(processStack)
+			var messages []string
+			fmt.Println("executing", producer.Tables[processingTable])
+			ReadCSV(conf[i].FileLoc, conf[i].Table, &messages)
+			//		}
+
+			producerMsgs = producer.PrepareMessages(conf[i].Topic, messages)
+			err = syncProducer.SendMessages(producerMsgs)
+			if err != nil {
+				panic(err)
+			}
+		}()
+
+		//	}
+	*/
 	for i := 0; i < len(conf); i++ {
-		fmt.Println(conf[i].Enabled)
+		// fmt.Println(conf[i].Enabled)
 		if conf[i].Enabled {
 			fmt.Println("executing", producer.Tables[conf[i].Table])
 			ReadCSV(conf[i].FileLoc, conf[i].Table, &messages)
@@ -52,7 +85,6 @@ func main() {
 			panic(err)
 		}
 	}
-
 	dur := time.Since(now)
 	fmt.Println(dur.Seconds())
 }
@@ -63,6 +95,8 @@ func ReadCSV(csvFile string, table string, m *[]string) {
 	if err != nil {
 		panic(err)
 	}
+	defer file.Close()
+
 	reader := csv.NewReader(bufio.NewReader(file))
 	var i int
 	for {
@@ -81,14 +115,14 @@ func ReadCSV(csvFile string, table string, m *[]string) {
 		case "Links":
 			rec, err := strconv.Atoi(record[0])
 			if err != nil {
-				fmt.Println(rec)
 				panic(err)
 			}
 
 			link := producer.Links{
-				MovieID: uint32(rec),
-				ImdbID:  record[1],
-				TmdbID:  record[2],
+				MovieID:     uint32(rec),
+				ImdbID:      record[1],
+				TmdbID:      record[2],
+				CurrentTime: time.Now().UTC(),
 			}
 
 			byteArray, err = json.Marshal(link)
@@ -103,12 +137,76 @@ func ReadCSV(csvFile string, table string, m *[]string) {
 			}
 
 			movie := producer.Movies{
-				MovieID: uint32(rec),
-				Title:   record[1],
-				Genres:  record[2],
+				MovieID:     uint32(rec),
+				Title:       record[1],
+				Genres:      record[2],
+				CurrentTime: time.Now().UTC(),
 			}
 
 			byteArray, err = json.Marshal(movie)
+			if err != nil {
+				panic(err)
+			}
+		case "Ratings":
+			userid, err := strconv.Atoi(record[0])
+			if err != nil {
+				panic(err)
+			}
+
+			movieid, err := strconv.Atoi(record[1])
+			if err != nil {
+				panic(err)
+			}
+
+			rt, err := strconv.ParseFloat(record[2], 32)
+			if err != nil {
+				panic(err)
+			}
+
+			t, err := strconv.ParseInt(record[3], 10, 64)
+			if err != nil {
+				panic(err)
+			}
+			tm := time.Unix(t, 0)
+
+			rating := producer.Ratings{
+				UserID:      uint32(userid),
+				MovieID:     uint32(movieid),
+				Rating:      float32(rt),
+				RecordTime:  tm,
+				CurrentTime: time.Now().UTC(),
+			}
+
+			byteArray, err = json.Marshal(rating)
+			if err != nil {
+				panic(err)
+			}
+		case "Tags":
+			userid, err := strconv.Atoi(record[0])
+			if err != nil {
+				panic(err)
+			}
+
+			movieid, err := strconv.Atoi(record[1])
+			if err != nil {
+				panic(err)
+			}
+
+			t, err := strconv.ParseInt(record[3], 10, 64)
+			if err != nil {
+				panic(err)
+			}
+			tm := time.Unix(t, 0)
+
+			tag := producer.Tags{
+				UserID:      uint32(userid),
+				MovieID:     uint32(movieid),
+				Tag:         record[2],
+				RecordTime:  tm,
+				CurrentTime: time.Now().UTC(),
+			}
+
+			byteArray, err = json.Marshal(tag)
 			if err != nil {
 				panic(err)
 			}
@@ -118,4 +216,25 @@ func ReadCSV(csvFile string, table string, m *[]string) {
 
 		*m = append(*m, string(byteArray))
 	}
+}
+
+func addToWaitStack() {
+	for i := 0; i < len(conf); i++ {
+		if conf[i].Enabled {
+			waitStack = append(waitStack, conf[i].Table)
+		}
+	}
+}
+
+func addToProcessStack(table string) {
+	processStack = append(processStack, table)
+}
+
+// PopFromStack implements Pop function for a stack
+func PopFromStack(stack []string) string {
+	val := stack[len(stack)-1]
+	fmt.Println("popped value:", val)
+	stack = stack[:len(stack)-1]
+
+	return val
 }
