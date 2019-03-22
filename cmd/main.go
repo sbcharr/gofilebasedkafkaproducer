@@ -17,15 +17,21 @@ import (
 )
 
 var (
-	messages     []string
+	//messages     []string
 	byteArray    []byte
 	conf         []*config.AppConfig
 	err          error
 	producerMsgs []*sarama.ProducerMessage
+	limit        int
 )
 
 func init() {
 	conf, err = config.LoadConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	limit, err = strconv.Atoi(os.Args[1])
 	if err != nil {
 		panic(err)
 	}
@@ -35,11 +41,11 @@ var waitStack, processStack, errorStack []string
 
 func main() {
 	now := time.Now()
-	syncProducer, err := producer.NewProducer()
-	if err != nil {
-		panic(err)
-	}
-	defer syncProducer.Close()
+	// syncProducer, err := producer.NewProducer()
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer syncProducer.Close()
 
 	//addToWaitStack() // inserts all tables into waitStack
 	/*
@@ -73,32 +79,45 @@ func main() {
 		//	}
 	*/
 	for i := 0; i < len(conf); i++ {
+		var messages []string
 		// fmt.Println(conf[i].Enabled)
 		if conf[i].Enabled {
 			fmt.Println("executing", producer.Tables[conf[i].Table])
-			ReadCSV(conf[i].FileLoc, conf[i].Table, &messages)
+			ReadCSV(conf[i].FileLoc, conf[i].Table, conf[i].Topic, &messages)
 		}
 
-		producerMsgs = producer.PrepareMessages(conf[i].Topic, messages)
-		err = syncProducer.SendMessages(producerMsgs)
-		if err != nil {
-			panic(err)
-		}
+		// producerMsgs = producer.PrepareMessages(conf[i].Topic, messages)
+		// err = syncProducer.SendMessages(producerMsgs)
+		// if err != nil {
+		// 	panic(err)
+		// }
 	}
 	dur := time.Since(now)
 	fmt.Println(dur.Seconds())
 }
 
 // ReadCSV reads a csv file and adds data to messages slice
-func ReadCSV(csvFile string, table string, m *[]string) {
+func ReadCSV(csvFile string, table string, topic string, m *[]string) {
 	file, err := os.Open(csvFile)
 	if err != nil {
 		panic(err)
 	}
 	defer file.Close()
 
+	syncProducer, err := producer.NewProducer()
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		if err := syncProducer.Close(); err != nil {
+			// Should not reach here
+			panic(err)
+		}
+	}()
+
 	reader := csv.NewReader(bufio.NewReader(file))
-	var i int
+	var i, k int
+
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
@@ -215,7 +234,26 @@ func ReadCSV(csvFile string, table string, m *[]string) {
 		}
 
 		*m = append(*m, string(byteArray))
+		k++
+		if k == limit {
+			err := prodc(syncProducer, topic, *m)
+			if err != nil {
+				panic(err)
+			}
+			var n []string
+			//now := time.Now()
+			m = &n
+			//dur := time.Since(now)
+			//fmt.Println(dur.Seconds())
+			k = 0
+		}
 	}
+	fmt.Println("topic name", topic)
+	err = prodc(syncProducer, topic, *m)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("debug1", producer.Tables[table])
 }
 
 func addToWaitStack() {
@@ -237,4 +275,11 @@ func PopFromStack(stack []string) string {
 	stack = stack[:len(stack)-1]
 
 	return val
+}
+
+func prodc(syncProducer sarama.SyncProducer, topic string, msg []string) error {
+	producerMsgs = producer.PrepareMessages(topic, msg)
+	err = syncProducer.SendMessages(producerMsgs)
+	//fmt.Println("debug2")
+	return err
 }

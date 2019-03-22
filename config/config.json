@@ -1,31 +1,31 @@
 [
     {
         "table_name": "links",
-        "file_loc": "/home/ubuntu/goworkspace/src/github.com/squeakysimple/gofilebasedkafkaproducer/data/ml-latest-small/links.csv",
+        "file_loc": "/home/ubuntu/goworkspace/src/github.com/squeakysimple/gofilebasedkafkaproducer/data/ml-latest/links.csv",
         "kafka_topic": "movielens-links",
         "compression": "snappy",
-        "enabled": true
+        "enabled": false
 
     },
     {
         "table_name": "movies",
-        "file_loc": "/home/ubuntu/goworkspace/src/github.com/squeakysimple/gofilebasedkafkaproducer/data/ml-latest-small/movies.csv",
+        "file_loc": "/home/ubuntu/goworkspace/src/github.com/squeakysimple/gofilebasedkafkaproducer/data/ml-latest/movies.csv",
         "kafka_topic": "movielens-movies",
+        "compression": "snappy",
+        "enabled": false
+    },
+    {
+        "table_name": "tags",
+        "file_loc": "/home/ubuntu/goworkspace/src/github.com/squeakysimple/gofilebasedkafkaproducer/data/ml-latest/tags.csv",
+        "kafka_topic": "movielens-tags",
         "compression": "snappy",
         "enabled": true
     },
     {
         "table_name": "ratings",
-        "file_loc": "/home/ubuntu/goworkspace/src/github.com/squeakysimple/gofilebasedkafkaproducer/data/ml-latest-small/ratings.csv",
+        "file_loc": "/home/ubuntu/goworkspace/src/github.com/squeakysimple/gofilebasedkafkaproducer/data/ml-latest/ratings.csv",
         "kafka_topic": "movielens-ratings",
         "compression": "snappy",
-        "enabled": true
-    },
-    {
-        "table_name": "tags",
-        "file_loc": "/home/ubuntu/goworkspace/src/github.com/squeakysimple/gofilebasedkafkaproducer/data/ml-latest-small/tags.csv",
-        "kafka_topic": "movielens-tags",
-        "compression": "snappy",
-        "enabled": true
+        "enabled": false
     }
 ]
